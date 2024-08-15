@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;400&display=swap');
+
+body {
+    background-color: #0E1012;
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 200;
+}
+
+h1 {
+    font-weight: normal;
+}
+
+.tab {
+    background-color: #161A1D !important;
+    border-color: darkslategray !important;
+    border-radius: 10px 10px 0 0;
+    font-weight: bold;
+}
+.tab--selected {
+    color: white !important;
+}
+
+.tab-content {
+    background-color: #161A1D !important;
+    color: #a0aaba !important;
+    padding: 2%;
+    border-radius: 0 0 20px 20px;
+}
+
+.dash-dropdown {
+    background-color: black !important;
+    color: black !important;
+}
+
+.dash-dropdown div{
+    background-color: #0E1012 !important;
+    color: #a0aaba !important;
+}
+
+.tab-active::before {
+    content: url('/assets/svg/check.svg');
+    display: inline-flex;
+    height: 16px;
+    width: 16px;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.tab-inactive::before {
+    content: url('/assets/svg/xmark.svg');
+    display: inline-flex;
+    height: 16px;
+    width: 16px;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.input-hours {
+    background: #0E1012;
+    color: white;
+    border: #0E1012 solid 2px;
+    margin-right: 10px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.input-minutes {
+    background: #0E1012;
+    color: white;
+    border: #0E1012 solid 2px;
+    min-width: 60px;
+    text-align: center;
+}
