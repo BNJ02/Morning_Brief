@@ -6,6 +6,52 @@ import sqlite3
 import ast
 import os
 
+from GoogleNews import GoogleNews
+import google.generativeai as genai
+from google.cloud import texttospeech
+import json
+
+from pydub import AudioSegment
+import sounddevice as sd
+import numpy as np
+
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+
+# Fonction pour la synthèse vocale
+def text_to_speech(text, output_file):
+    # Instanciez le client Text to Speech
+    client = texttospeech.TextToSpeechClient()
+
+    # AU, GB, US, IN pour l'anglais : en
+    # FR, CA pour le français : fr
+
+    # Définissez les paramètres de la voix
+    voice = texttospeech.VoiceSelectionParams(
+        name='fr-FR-Wavenet-C',
+        language_code="fr-FR"
+        # ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
+    )
+
+    # Définissez les paramètres de l'audio
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3,
+        speaking_rate=1.15
+    )
+
+    # Créez la requête de synthèse vocale
+    synthesis_input = texttospeech.SynthesisInput(text=text)
+
+    # Créez la requête de synthèse vocale
+    response = client.synthesize_speech(
+        input=synthesis_input,
+        voice=voice,
+        audio_config=audio_config
+    )
+
+    # Enregistrez l'audio dans un fichier
+    with open(output_file, "wb") as out:
+        out.write(response.audio_content)
+
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sqlite.db')
@@ -161,6 +207,8 @@ app.layout = dbc.Container(
                 ]) for jour in jours_list
             ]
         ),
+        html.Button("Run a Morning Brief", id="play-button", n_clicks=0, style={"marginTop": "20px"}),
+        html.Div('Coucou', id="output-div"),
         html.H2('Tableau d\'Historique', style={"marginTop": "50px"}),
         dash_table.DataTable(
             id='historique-table',
@@ -175,6 +223,89 @@ app.layout = dbc.Container(
     ],
     className='p-4'
 )
+
+# Callback pour run un Morning Brief
+@app.callback(
+    Output("output-div", "children"),
+    Input("play-button", "n_clicks"),
+    prevent_initial_call=True
+)
+def update_output(n_clicks):
+
+    #################### NEWS PART ####################
+    googlenews = GoogleNews()
+
+    googlenews.set_lang('fr')
+    googlenews.set_period('1d')
+    googlenews.set_encode('utf-8')
+    # googlenews.set_time_range('08/11/2024','08/11/2024')
+
+    # Theme du brief
+    googlenews.get_news('Sciences et Technologies')
+
+    result = googlenews.results()
+    print("Total news : ",len(result))
+
+    # Liste de tous les titres
+    titles = [x['title'] for x in result]
+    print("Titles:", titles)
+
+    # Écriture des données météo dans un fichier texte
+    with open("theme_brief_w_AI.json", "w") as file:
+        file.write(json.dumps(result))
+
+    googlenews.clear()
+
+    #################### AI PART ####################
+    model = genai.GenerativeModel("models/gemini-1.5-pro-latest")
+
+    my_prompt = """
+    Tu es présentateur des actualités.
+    Fais une synthèse des sujets les plus récurrents dans les actualités du jour.
+    Evoque au maximum 5 sujets différents.
+    Réalise qu'un seul paragraphe mais avec une introduction et un mot d'au revoir.
+    """ + "\n".join(titles)
+
+    ### Count Tokens
+    # Call `count_tokens` to get the input token count (`total_tokens`).
+    print("count_tokens: ", model.count_tokens(my_prompt))
+    response = model.generate_content(my_prompt)
+    print(response.usage_metadata)
+
+    ### Génération de texte
+    response = model.generate_content(my_prompt)
+    print(response.text)
+
+    ### Text to Speech
+    output_file = "SportBrief.mp3"
+    text_to_speech(response.text, output_file)
+
+    #################### PLAY PART ####################
+
+    # Charger le fichier MP3
+    filename = "SportBrief.mp3"
+    audio = AudioSegment.from_mp3(filename)
+
+    # Convertir les données audio en tableau NumPy
+    audio_data = np.array(audio.get_array_of_samples(), dtype=np.float32)
+
+    # Convertir les données audio en format stéréo si nécessaire
+    if audio.channels == 2:
+        audio_data = audio_data.reshape((-1, 2))
+
+    # Normaliser les données audio
+    audio_data_normalized = audio_data / np.max(np.abs(audio_data))
+
+    # Sélectionner la sortie audio
+    print(sd.query_devices())
+    # sd.default.device = 1  # Remplacez par l'index de votre périphérique audio
+    # print(sd.query_devices())
+
+    # Jouer les données audio
+    sd.play(audio_data_normalized, audio.frame_rate)
+    sd.wait()  # Attend la fin de la lecture
+
+    return f"Le bouton a été cliqué {n_clicks} fois."
 
 for jour in jours_list:
     # Changement de logo par jour & Update BDD
