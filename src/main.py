@@ -14,8 +14,58 @@ import json
 from pydub import AudioSegment
 import sounddevice as sd
 import numpy as np
+import subprocess
 
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+mac_address = 'E4:BD:95:C7:92:A2' # Adresse MAC de l'appareil audio Bluetooth
+
+def connect_bluetooth_device(mac_address):
+    # Lancer bluetoothctl
+    process = subprocess.Popen(['bluetoothctl'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+    # Envoyer les commandes nécessaires
+    commands = [
+        'power on\n',               # Activer le Bluetooth (si ce n'est pas déjà fait)
+        f'connect {mac_address}\n',  # Se connecter à l'appareil avec l'adresse MAC donnée
+        'exit\n'                    # Quitter bluetoothctl
+    ]
+    
+    for cmd in commands:
+        process.stdin.write(cmd)
+        process.stdin.flush()
+    
+    # Lire la sortie pour vérifier le succès
+    process.communicate()
+
+    # Afficher le résultat
+    if process.returncode == 0:
+        print(f'Connexion réussie avec {mac_address}')
+    else:
+        print(f'Échec de la connexion avec {mac_address}')
+
+def disconnect_bluetooth_device(mac_address):
+    # Lancer bluetoothctl
+    process = subprocess.Popen(['bluetoothctl'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+    # Envoyer les commandes nécessaires
+    commands = [
+        'power on\n',                   # Activer le Bluetooth (si ce n'est pas déjà fait)
+        f'disconnect {mac_address}\n',  # Se connecter à l'appareil avec l'adresse MAC donnée
+        'exit\n'                        # Quitter bluetoothctl
+    ]
+    
+    for cmd in commands:
+        process.stdin.write(cmd)
+        process.stdin.flush()
+    
+    # Lire la sortie pour vérifier le succès
+    process.communicate()
+
+    # Afficher le résultat
+    if process.returncode == 0:
+        print(f'Déconnexion réussie avec {mac_address}')
+    else:
+        print(f'Échec de la déconnexion avec {mac_address}')
 
 # Fonction pour la synthèse vocale
 def text_to_speech(text, output_file):
@@ -231,7 +281,9 @@ app.layout = dbc.Container(
     prevent_initial_call=True
 )
 def update_output(n_clicks):
-
+    # Se connecter à l'appareil Bluetooth
+    connect_bluetooth_device(mac_address)
+    
     #################### NEWS PART ####################
     googlenews = GoogleNews()
 
@@ -304,6 +356,9 @@ def update_output(n_clicks):
     # Jouer les données audio
     sd.play(audio_data_normalized, audio.frame_rate)
     sd.wait()  # Attend la fin de la lecture
+
+    # Se déconnecter à l'appareil Bluetooth
+    disconnect_bluetooth_device(mac_address)
 
     return f"Le bouton a été cliqué {n_clicks} fois."
 
